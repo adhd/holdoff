@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Holdoff: Digital Detox Timer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+    <script>
+        console.log('Page is loading...');
+    </script>
+</head>
+<body>
+    <noscript>JavaScript is required for this app to work.</noscript>
+    <p id="debug">If you can see this, the HTML is loading but there might be a JavaScript error.</p>
+
+    <button class="theme-toggle">
+        <span class="theme-icon">☀️</span>
+        <span class="theme-text">Light</span>
+    </button>
+
+    <div class="container">
+        <header>
+            <h1>Holdoff</h1>
+            <p class="subtitle">Measure what matters: your freedom from distractions</p>
+        </header>
+
+        <main class="main-content">
+            <div class="distraction-selector">
+                <h2>I'm staying away from:</h2>
+                <div class="selected-distractions"></div>
+                <select id="distraction-select">
+                    <option value="">Choose a distraction...</option>
+                    <option value="social-media" data-icon="icons/social-media.png">Social Media</option>
+                    <option value="email" data-icon="icons/email.png">Email</option>
+                    <option value="phone" data-icon="icons/phone.png">Phone</option>
+                    <option value="youtube" data-icon="icons/youtube.png">YouTube</option>
+                    <option value="news" data-icon="icons/news.png">News Sites</option>
+                    <option value="custom">+ Add Custom</option>
+                </select>
+            </div>
+
+            <div class="timer-container">
+                <div class="timer-display"></div>
+                <div class="progress-bar">
+                    <div class="progress"></div>
+                </div>
+                <div class="timer-controls">
+                    <button id="start">Start</button>
+                    <button id="pause" disabled>Pause</button>
+                    <button id="reset" disabled>Reset</button>
+                </div>
+            </div>
+        </main>
+        
+        <aside class="session-history">
+            <div class="history-list"></div>
+        </aside>
+    </div>
+
+    <script src="js/storage.js"></script>
+    <script src="js/timer.js"></script>
+    <script src="js/app.js"></script>
+    <script>
+        console.log('All scripts should be loaded now');
+        document.getElementById('debug').style.display = 'none';
+    </script>
+</body>
+</html> 
