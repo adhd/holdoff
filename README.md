@@ -1,6 +1,6 @@
 # Holdoff
 
-![Holdoff Screenshot](screenshots/holdoff.png)
+![Holdoff Screenshot](screenshots/holdoff.gif)
 
 A minimalist digital detox timer to help you stay focused and distraction-free. Built with clean, modern web technologies.
 
@@ -51,6 +51,3 @@ A minimalist digital detox timer to help you stay focused and distraction-free. 
 
 No build process required - it's pure HTML, CSS, and JavaScript.
 
-## Development
-
-### Project Structure 
