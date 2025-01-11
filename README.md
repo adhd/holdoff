@@ -1,6 +1,6 @@
 # Holdoff
 
-![Holdoff Screenshot](screenshots/holdoff.gif)
+![Holdoff Screenshot](./screenshots/holdoff.gif)
 
 A minimalist digital detox timer to help you stay focused and distraction-free. Built with clean, modern web technologies.
 
