@@ -18,10 +18,18 @@ class App {
         this.modeToggle = document.getElementById('mode-toggle');
 
         this.startButton.addEventListener('click', () => this.startTimer());
-        this.pauseButton.addEventListener('click', () => this.timer.pause());
-        this.resetButton.addEventListener('click', () => this.timer.reset());
+        this.pauseButton.addEventListener('click', () => {
+            this.timer.pause();
+            this.startButton.disabled = false;
+            this.pauseButton.disabled = true;
+        });
+        this.resetButton.addEventListener('click', () => {
+            this.timer.reset();
+            this.startButton.disabled = false;
+            this.pauseButton.disabled = true;
+            this.resetButton.disabled = true;
+        });
         
-        // Add mode toggle handler
         this.modeToggle.addEventListener('click', () => this.toggleMode());
     }
 
@@ -124,7 +132,7 @@ class App {
             timeInput.className = 'time-input';
             timeInput.innerHTML = `
                 <input type="text" placeholder="HH:MM:SS" pattern="[0-9:]*">
-                <small>Press Enter to save</small>
+                <small></small>
             `;
             timerDisplay.appendChild(timeInput);
         }
@@ -152,37 +160,31 @@ class App {
         });
 
         // Add click handler for timer display
-        timerDisplay.addEventListener('click', () => {
-            if (this.timer.isRunning) return; // Don't allow editing while timer is running
+        const handleClickOutside = (e) => {
+            const timeInput = document.querySelector('.time-input');
+            if (timeInput && !timeInput.contains(e.target) && !this.timer.timeText.contains(e.target)) {
+                timeInput.classList.remove('visible');
+                document.removeEventListener('click', handleClickOutside);
+            }
+        };
+
+        timerDisplay.addEventListener('click', (e) => {
+            if (this.timer.isRunning) return;
             
             const timeInput = timerDisplay.querySelector('.time-input');
             const input = timeInput.querySelector('input');
             
+            // Prevent event bubbling
+            e.stopPropagation();
+            
             timeInput.classList.add('visible');
-            
-            // Format current duration to HH:MM:SS
-            const hours = Math.floor(this.timer.duration / 3600);
-            const minutes = Math.floor((this.timer.duration % 3600) / 60);
-            const seconds = this.timer.duration % 60;
-            input.value = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-            
+            input.value = this.formatTime(this.timer.duration);
             input.focus();
-            
-            const parseTimeInput = (value) => {
-                const parts = value.split(':').map(part => parseInt(part, 10) || 0);
-                if (parts.length === 3) {
-                    return parts[0] * 3600 + parts[1] * 60 + parts[2];
-                } else if (parts.length === 2) {
-                    return parts[0] * 60 + parts[1];
-                } else if (parts.length === 1) {
-                    return parts[0];
-                }
-                return null;
-            };
 
+            // Add input handler
             const handleInput = (e) => {
                 if (e.key === 'Enter') {
-                    const totalSeconds = parseTimeInput(input.value);
+                    const totalSeconds = this.parseTimeInput(input.value);
                     if (totalSeconds !== null && totalSeconds > 0) {
                         this.timer.setDuration(totalSeconds);
                         timeInput.classList.remove('visible');
@@ -196,19 +198,18 @@ class App {
 
             input.addEventListener('keydown', handleInput);
             
-            // Close input when clicking outside
-            const handleClickOutside = (e) => {
-                if (!timeInput.contains(e.target) && !timerDisplay.contains(e.target)) {
-                    timeInput.classList.remove('visible');
-                    document.removeEventListener('click', handleClickOutside);
-                }
-            };
-            
             // Add slight delay to avoid immediate trigger
             setTimeout(() => {
                 document.addEventListener('click', handleClickOutside);
             }, 0);
         });
+    }
+
+    formatTime(totalSeconds) {
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
     }
 
     initializeThemeToggle() {
@@ -297,6 +298,8 @@ class App {
         const historyList = document.querySelector('.history-list');
         const sessions = this.storageManager.getSessions();
         
+        if (!historyList) return; // Guard against missing element
+        
         historyList.innerHTML = sessions.slice(-10).reverse().map(session => {
             const date = new Date(session.timestamp);
             const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -304,7 +307,9 @@ class App {
             
             let description;
             if (session.type === 'work') {
-                const distractions = session.distractions.join(', ');
+                const distractions = session.distractions.length > 0 
+                    ? session.distractions.join(', ') 
+                    : 'none';
                 description = `${minutes}min focus session<br><small>Avoided: ${distractions}</small>`;
             } else {
                 description = `${minutes}min rest session`;
@@ -317,6 +322,19 @@ class App {
                 </div>
             `;
         }).join('');
+    }
+
+    // Add this method to parse time input
+    parseTimeInput(value) {
+        const parts = value.split(':').map(part => parseInt(part, 10) || 0);
+        if (parts.length === 3) {
+            return parts[0] * 3600 + parts[1] * 60 + parts[2];
+        } else if (parts.length === 2) {
+            return parts[0] * 60 + parts[1];
+        } else if (parts.length === 1) {
+            return parts[0];
+        }
+        return null;
     }
 
     // ... rest of App class methods

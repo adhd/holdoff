@@ -180,7 +180,7 @@ select:hover {
     display: none;
     box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     z-index: 10;
-    width: 200px;
+    width: 180px;
 }
 
 .time-input.visible {
@@ -191,25 +191,36 @@ select:hover {
 
 .time-input input {
     width: 100%;
-    padding: 0.5rem;
+    padding: 0.75rem;
     border: 1px solid var(--accent-gray);
-    border-radius: 6px;
+    border-radius: 8px;
     font-family: var(--font-mono);
-    font-size: 1rem;
+    font-size: 1.1rem;
     text-align: center;
-    cursor: text;
-}
-
-.time-input small {
-    color: #666666;
-    font-size: 0.8rem;
-    text-align: center;
-    opacity: 0.8;
+    color: var(--text-color);
+    background: var(--card-background);
 }
 
 .time-input input:focus {
     outline: none;
     border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(0,0,0,0.1);
+}
+
+.time-input small {
+    color: var(--text-color);
+    font-size: 0.9rem;
+    text-align: center;
+    opacity: 0.8;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.time-input small::before {
+    content: '⏎';
+    font-size: 1.2rem;
 }
 
 .progress-bar {

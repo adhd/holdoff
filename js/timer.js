@@ -3,10 +3,11 @@ class Timer {
         this.timeText = config.display;
         this.progressBar = config.progress;
         this.onComplete = config.onComplete;
-        this.duration = config.duration || 25 * 60; // Default 25 minutes
+        this.duration = config.duration || 25 * 60;
         this.remaining = this.duration;
         this.isRunning = false;
         this.updateDisplay();
+        this.updateProgress();
     }
 
     setDuration(seconds) {
@@ -14,9 +15,7 @@ class Timer {
             this.duration = seconds;
             this.remaining = seconds;
             this.updateDisplay();
-            if (this.progressBar) {
-                this.progressBar.style.width = '0%';
-            }
+            this.updateProgress();
         }
     }
 
@@ -62,6 +61,9 @@ class Timer {
 
     complete() {
         this.pause();
+        this.remaining = 0;
+        this.updateDisplay();
+        this.updateProgress();
         if (this.onComplete) {
             this.onComplete();
         }
