@@ -1,293 +1,328 @@
 class App {
     constructor() {
-        this.storage = new StorageManager();
-        this.selectedDistractions = new Map();
-        this.initializeTheme();
-        this.initializeElements();
+        this.isWorkMode = true;
+        this.selectedDistractions = new Set();
+        this.storageManager = new StorageManager();
         this.initializeTimer();
-        this.bindEvents();
-        this.updateHistory();
+        this.initializeControls();
+        this.initializeDistractionSelector();
+        this.loadSavedMode();
+        this.initializeThemeToggle();
+        this.updateSessionHistory();
     }
 
-    initializeTheme() {
-        const savedTheme = localStorage.getItem('theme') || 'light';
-        document.documentElement.setAttribute('data-theme', savedTheme);
-        this.updateThemeToggle(savedTheme);
-    }
-
-    updateThemeToggle(theme) {
-        const toggle = document.querySelector('.theme-toggle');
-        const icon = toggle.querySelector('.theme-icon');
-        const text = toggle.querySelector('.theme-text');
-        
-        if (theme === 'dark') {
-            icon.textContent = '🌙';
-            text.textContent = 'Dark';
-        } else {
-            icon.textContent = '☀️';
-            text.textContent = 'Light';
-        }
-    }
-
-    toggleTheme() {
-        const currentTheme = document.documentElement.getAttribute('data-theme');
-        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-        
-        document.documentElement.setAttribute('data-theme', newTheme);
-        localStorage.setItem('theme', newTheme);
-        this.updateThemeToggle(newTheme);
-    }
-
-    initializeElements() {
-        this.distractionSelect = document.getElementById('distraction-select');
-        this.selectedDistractionsContainer = document.querySelector('.selected-distractions');
-        this.timerDisplay = document.querySelector('.timer-display');
-        this.progressBar = document.querySelector('.progress');
+    initializeControls() {
         this.startButton = document.getElementById('start');
         this.pauseButton = document.getElementById('pause');
         this.resetButton = document.getElementById('reset');
-        this.historyList = document.querySelector('.history-list');
-        
-        // Create time input element separately
-        const timeInput = document.createElement('div');
-        timeInput.className = 'time-input';
-        timeInput.innerHTML = `
-            <input type="text" placeholder="25:00" value="25:00">
-            <small>Format: mm:ss or minutes</small>
-        `;
-        this.timerDisplay.appendChild(timeInput);
-    }
+        this.modeToggle = document.getElementById('mode-toggle');
 
-    initializeTimer() {
-        this.timer = new Timer(
-            this.timerDisplay,
-            this.progressBar,
-            () => this.handleTimerComplete()
-        );
-    }
-
-    bindEvents() {
-        this.distractionSelect.addEventListener('change', () => this.handleDistractionSelect());
         this.startButton.addEventListener('click', () => this.startTimer());
-        this.pauseButton.addEventListener('click', () => this.pauseTimer());
-        this.resetButton.addEventListener('click', () => this.resetTimer());
-        this.timerDisplay.addEventListener('click', (e) => {
-            if (this.timer.isRunning) return;
-            
-            const input = this.timerDisplay.querySelector('.time-input');
-            const wasVisible = input.classList.contains('visible');
-            
-            if (e.target.tagName === 'INPUT') {
-                e.stopPropagation();
-                return;
-            }
-            
-            input.classList.toggle('visible', !wasVisible);
-            if (!wasVisible) {
-                const inputEl = input.querySelector('input');
-                inputEl.value = this.formatTimeInput(this.timer.duration / 60);
-                inputEl.focus();
-                inputEl.select();
-            }
-        });
+        this.pauseButton.addEventListener('click', () => this.timer.pause());
+        this.resetButton.addEventListener('click', () => this.timer.reset());
         
-        this.timerDisplay.querySelector('input').addEventListener('change', (e) => {
-            const timeValue = this.parseTimeInput(e.target.value);
-            if (timeValue !== null && timeValue > 0 && timeValue <= 43200) { // 12 hours in seconds
-                this.timer.setDuration(timeValue / 60);
-                this.timerDisplay.querySelector('.time-input').classList.remove('visible');
-            } else {
-                e.target.value = this.formatTimeInput(25);
-            }
-        });
-        
-        // Also handle Enter key
-        this.timerDisplay.querySelector('input').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                e.target.blur(); // Trigger the change event
-            }
-        });
-        
-        // Close time selector when clicking outside
-        document.addEventListener('click', (e) => {
-            if (!this.timerDisplay.contains(e.target)) {
-                this.timerDisplay.querySelector('.time-input').classList.remove('visible');
-            }
-        });
-
-        document.querySelector('.theme-toggle').addEventListener('click', () => this.toggleTheme());
+        // Add mode toggle handler
+        this.modeToggle.addEventListener('click', () => this.toggleMode());
     }
 
-    handleDistractionSelect() {
-        const selected = this.distractionSelect.value;
-        if (!selected) return;
+    toggleMode() {
+        this.isWorkMode = !this.isWorkMode;
+        this.modeToggle.textContent = this.isWorkMode ? 'Work' : 'Rest';
+        
+        // Reset timer state when switching modes
+        this.timer.pause();
+        this.startButton.disabled = false;
+        this.pauseButton.disabled = true;
+        this.resetButton.disabled = true;
+        
+        // Update timer duration
+        const minutes = this.isWorkMode ? 25 : 5;
+        this.timer.setDuration(minutes * 60);
+        
+        this.updateModeUI();
+        localStorage.setItem('mode', this.isWorkMode ? 'work' : 'rest');
+    }
 
-        if (selected === 'custom') {
-            const custom = prompt('Enter custom distraction:');
-            if (custom && custom.trim()) {
-                this.addDistraction(custom.trim(), null);
-            }
+    updateModeUI() {
+        const distractionSection = document.querySelector('.distraction-selector');
+        
+        if (this.isWorkMode) {
+            distractionSection.innerHTML = `
+                <h2>I'm staying away from:</h2>
+                <div class="selected-distractions"></div>
+                <select id="distraction-select">
+                    <option value="">Choose a distraction...</option>
+                    <option value="social-media">Social Media</option>
+                    <option value="email">Email</option>
+                    <option value="phone">Phone</option>
+                    <option value="youtube">YouTube</option>
+                    <option value="news">News Sites</option>
+                    <option value="custom">+ Add Custom</option>
+                </select>
+            `;
+            this.initializeDistractionSelector();
         } else {
-            const selectedOption = this.distractionSelect.options[this.distractionSelect.selectedIndex];
-            this.addDistraction(
-                selectedOption.text,
-                selectedOption.dataset.icon
-            );
-        }
-
-        this.distractionSelect.value = '';
-
-        const visibleOptions = Array.from(this.distractionSelect.options)
-            .filter(opt => opt.style.display !== 'none' && opt.value !== '' && opt.value !== 'custom');
-
-        if (visibleOptions.length === 0) {
-            this.distractionSelect.querySelector('option[value=""]').text = 'No more distractions available';
-        }
-    }
-
-    addDistraction(distraction, iconPath) {
-        if (this.selectedDistractions.has(distraction)) return;
-
-        this.selectedDistractions.set(distraction, iconPath);
-        const tag = document.createElement('div');
-        tag.className = 'distraction-tag';
-        tag.dataset.distraction = distraction;
-        tag.innerHTML = `${
-            iconPath ? `<img src="${iconPath}" alt="${distraction} icon">` : ''
-        }${distraction}<button onclick="app.removeDistraction('${distraction}')">&times;</button>`;
-        this.selectedDistractionsContainer.appendChild(tag);
-
-        const option = Array.from(this.distractionSelect.options).find(opt => 
-            opt.text === distraction || opt.value === distraction.toLowerCase().replace(/\s+/g, '-')
-        );
-        if (option) {
-            option.style.display = 'none';
+            const quotes = [
+                "Rest is not idleness, it is the key to greater activity.",
+                "Take rest; a field that has rested gives a bountiful crop.",
+                "Sometimes the most productive thing you can do is rest.",
+                "Rest when you're weary. Refresh and renew yourself.",
+            ];
+            const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
+            distractionSection.innerHTML = `
+                <h2>Time to Rest</h2>
+                <div class="rest-quote">
+                    <p>${randomQuote}</p>
+                </div>
+            `;
         }
     }
 
-    removeDistraction(distraction) {
-        this.selectedDistractions.delete(distraction);
-        const tagToRemove = this.selectedDistractionsContainer.querySelector(`[data-distraction="${distraction}"]`);
-        if (tagToRemove) {
-            tagToRemove.remove();
-        }
-
-        const option = Array.from(this.distractionSelect.options).find(opt => 
-            opt.text === distraction || opt.value === distraction.toLowerCase().replace(/\s+/g, '-')
-        );
-        if (option) {
-            option.style.display = '';
-        }
-
-        if (this.selectedDistractions.size < this.distractionSelect.options.length - 2) { // -2 for default and custom options
-            this.distractionSelect.querySelector('option[value=""]').text = 'Choose a distraction...';
+    loadSavedMode() {
+        const savedMode = localStorage.getItem('mode');
+        if (savedMode === 'rest') {
+            this.isWorkMode = false;
+            this.modeToggle.textContent = 'Rest';
+            this.timer.setDuration(5 * 60);
+            
+            // Reset button states
+            this.startButton.disabled = false;
+            this.pauseButton.disabled = true;
+            this.resetButton.disabled = true;
+            
+            this.updateModeUI();
         }
     }
 
     startTimer() {
-        if (this.selectedDistractions.size === 0) {
+        // Only check for distractions in work mode
+        if (this.isWorkMode && this.selectedDistractions.size === 0) {
             alert('Please select at least one distraction to stay away from');
             return;
         }
-
+        
         this.timer.start();
         this.startButton.disabled = true;
         this.pauseButton.disabled = false;
         this.resetButton.disabled = false;
     }
 
-    pauseTimer() {
-        this.timer.pause();
-        this.startButton.disabled = false;
-        this.pauseButton.disabled = true;
-    }
-
-    resetTimer() {
-        this.timer.reset();
-        this.startButton.disabled = false;
-        this.pauseButton.disabled = true;
-        this.resetButton.disabled = true;
-    }
-
-    handleTimerComplete() {
-        const session = {
-            timestamp: new Date().toISOString(),
-            distractions: Array.from(this.selectedDistractions.keys())
-        };
+    initializeTimer() {
+        const timerDisplay = document.querySelector('.timer-display');
+        const progressBar = document.querySelector('.progress');
         
-        this.storage.saveSession(session);
-        this.updateHistory();
-        
-        const duration = this.formatTimeForMessage(this.timer.duration);
-        alert(`Great job! You've stayed away from ${Array.from(this.selectedDistractions.keys()).join(', ')} for ${duration}!`);
-        
-        this.resetTimer();
-    }
-
-    formatTimeForMessage(seconds) {
-        const minutes = Math.floor(seconds / 60);
-        const remainingSeconds = Math.round(seconds % 60);
-        
-        if (minutes === 0) {
-            return `${remainingSeconds} seconds`;
-        } else if (minutes === 1) {
-            return remainingSeconds > 0 ? `1 minute and ${remainingSeconds} seconds` : '1 minute';
-        } else {
-            return remainingSeconds > 0 ? `${minutes} minutes and ${remainingSeconds} seconds` : `${minutes} minutes`;
+        // Create a time text element if it doesn't exist
+        if (!timerDisplay.querySelector('.time-text')) {
+            const timeText = document.createElement('div');
+            timeText.className = 'time-text';
+            timerDisplay.appendChild(timeText);
         }
-    }
 
-    updateHistory() {
-        const sessions = this.storage.getSessions();
-        const streak = this.storage.getStreak();
-        
-        this.historyList.innerHTML = `
-            <h2>
-                Recent Sessions
-                <span class="streak-count">${streak} streaks today</span>
-            </h2>
-            ${sessions.slice(-5).reverse().map(session => `
-                <div class="history-entry">
-                    <p>${this.formatTimestamp(new Date(session.timestamp))}</p>
-                    <p>${session.distractions.join(', ')}</p>
-                </div>
-            `).join('')}
-        `;
-    }
-
-    formatTimestamp(date) {
-        const now = new Date();
-        const diffInHours = (now - date) / (1000 * 60 * 60);
-        
-        if (diffInHours < 24) {
-            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        } else {
-            return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+        // Create time input if it doesn't exist
+        if (!timerDisplay.querySelector('.time-input')) {
+            const timeInput = document.createElement('div');
+            timeInput.className = 'time-input';
+            timeInput.innerHTML = `
+                <input type="text" placeholder="HH:MM:SS" pattern="[0-9:]*">
+                <small>Press Enter to save</small>
+            `;
+            timerDisplay.appendChild(timeInput);
         }
-    }
 
-    formatTimeInput(minutes) {
-        const mins = Math.floor(minutes);
-        const secs = Math.round((minutes % 1) * 60);
-        return `${mins}:${secs.toString().padStart(2, '0')}`;
-    }
+        this.timer = new Timer({
+            display: timerDisplay.querySelector('.time-text'),
+            progress: progressBar,
+            duration: this.isWorkMode ? 25 * 60 : 5 * 60,
+            onComplete: () => {
+                this.startButton.disabled = false;
+                this.pauseButton.disabled = true;
+                this.resetButton.disabled = true;
 
-    parseTimeInput(value) {
-        // Handle mm:ss format
-        if (value.includes(':')) {
-            const [mins, secs] = value.split(':').map(v => parseInt(v));
-            if (!isNaN(mins) && !isNaN(secs) && secs < 60) {
-                return mins * 60 + secs;
+                // Log the completed session
+                const session = {
+                    timestamp: new Date().toISOString(),
+                    duration: this.timer.duration,
+                    type: this.isWorkMode ? 'work' : 'rest',
+                    distractions: this.isWorkMode ? Array.from(this.selectedDistractions) : []
+                };
+                
+                this.storageManager.saveSession(session);
+                this.updateSessionHistory();
             }
-        }
-        // Handle minutes as number
-        const minutes = parseFloat(value);
-        if (!isNaN(minutes)) {
-            return minutes * 60;
-        }
-        return null;
+        });
+
+        // Add click handler for timer display
+        timerDisplay.addEventListener('click', () => {
+            if (this.timer.isRunning) return; // Don't allow editing while timer is running
+            
+            const timeInput = timerDisplay.querySelector('.time-input');
+            const input = timeInput.querySelector('input');
+            
+            timeInput.classList.add('visible');
+            
+            // Format current duration to HH:MM:SS
+            const hours = Math.floor(this.timer.duration / 3600);
+            const minutes = Math.floor((this.timer.duration % 3600) / 60);
+            const seconds = this.timer.duration % 60;
+            input.value = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            
+            input.focus();
+            
+            const parseTimeInput = (value) => {
+                const parts = value.split(':').map(part => parseInt(part, 10) || 0);
+                if (parts.length === 3) {
+                    return parts[0] * 3600 + parts[1] * 60 + parts[2];
+                } else if (parts.length === 2) {
+                    return parts[0] * 60 + parts[1];
+                } else if (parts.length === 1) {
+                    return parts[0];
+                }
+                return null;
+            };
+
+            const handleInput = (e) => {
+                if (e.key === 'Enter') {
+                    const totalSeconds = parseTimeInput(input.value);
+                    if (totalSeconds !== null && totalSeconds > 0) {
+                        this.timer.setDuration(totalSeconds);
+                        timeInput.classList.remove('visible');
+                    }
+                    input.removeEventListener('keydown', handleInput);
+                } else if (e.key === 'Escape') {
+                    timeInput.classList.remove('visible');
+                    input.removeEventListener('keydown', handleInput);
+                }
+            };
+
+            input.addEventListener('keydown', handleInput);
+            
+            // Close input when clicking outside
+            const handleClickOutside = (e) => {
+                if (!timeInput.contains(e.target) && !timerDisplay.contains(e.target)) {
+                    timeInput.classList.remove('visible');
+                    document.removeEventListener('click', handleClickOutside);
+                }
+            };
+            
+            // Add slight delay to avoid immediate trigger
+            setTimeout(() => {
+                document.addEventListener('click', handleClickOutside);
+            }, 0);
+        });
     }
+
+    initializeThemeToggle() {
+        this.themeToggle = document.querySelector('.theme-toggle');
+        this.themeIcon = document.querySelector('.theme-icon');
+        this.themeText = document.querySelector('.theme-text');
+        
+        // Load saved theme
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        this.updateThemeToggle(savedTheme);
+
+        // Add click handler
+        this.themeToggle.addEventListener('click', () => {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            this.updateThemeToggle(newTheme);
+        });
+    }
+
+    updateThemeToggle(theme) {
+        this.themeIcon.textContent = theme === 'dark' ? '🌙' : '☀️';
+        this.themeText.textContent = theme === 'dark' ? 'Dark' : 'Light';
+    }
+
+    initializeDistractionSelector() {
+        this.distractionSelect = document.getElementById('distraction-select');
+        this.selectedDistractionsContainer = document.querySelector('.selected-distractions');
+
+        this.distractionSelect.addEventListener('change', (e) => {
+            const value = e.target.value;
+            if (!value) return;
+
+            if (value === 'custom') {
+                const customDistraction = prompt('Enter custom distraction:');
+                if (customDistraction && customDistraction.trim()) {
+                    this.addDistraction(customDistraction.trim());
+                }
+            } else {
+                const option = e.target.selectedOptions[0];
+                this.addDistraction(option.text, value);
+            }
+
+            // Reset select to default option
+            e.target.value = '';
+        });
+    }
+
+    addDistraction(text, value = null) {
+        if (this.selectedDistractions.has(text)) return;
+        
+        this.selectedDistractions.add(text);
+        
+        const tag = document.createElement('div');
+        tag.className = 'distraction-tag';
+        
+        // Add icon if available
+        if (value) {
+            const icon = document.createElement('img');
+            icon.src = `icons/${value}.png`;
+            icon.alt = text;
+            tag.appendChild(icon);
+        }
+        
+        // Add text
+        const textSpan = document.createElement('span');
+        textSpan.textContent = text;
+        tag.appendChild(textSpan);
+        
+        // Add remove button
+        const removeButton = document.createElement('button');
+        removeButton.innerHTML = '×';
+        removeButton.addEventListener('click', () => {
+            this.selectedDistractions.delete(text);
+            tag.remove();
+        });
+        tag.appendChild(removeButton);
+        
+        this.selectedDistractionsContainer.appendChild(tag);
+    }
+
+    updateSessionHistory() {
+        const historyList = document.querySelector('.history-list');
+        const sessions = this.storageManager.getSessions();
+        
+        historyList.innerHTML = sessions.slice(-10).reverse().map(session => {
+            const date = new Date(session.timestamp);
+            const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const minutes = Math.floor(session.duration / 60);
+            
+            let description;
+            if (session.type === 'work') {
+                const distractions = session.distractions.join(', ');
+                description = `${minutes}min focus session<br><small>Avoided: ${distractions}</small>`;
+            } else {
+                description = `${minutes}min rest session`;
+            }
+            
+            return `
+                <div class="history-entry">
+                    <p>${timeStr}</p>
+                    <p>${description}</p>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // ... rest of App class methods
 }
 
 // Initialize the app
-const app = new App(); 
+document.addEventListener('DOMContentLoaded', () => {
+    const app = new App();
+}); 

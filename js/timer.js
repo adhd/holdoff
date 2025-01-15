@@ -1,22 +1,23 @@
 class Timer {
-    constructor(display, progressBar, onComplete) {
-        this.display = display;
-        this.timeText = document.createElement('span');
-        this.timeText.className = 'time-text';
-        this.display.insertBefore(this.timeText, this.display.firstChild);
-        this.progressBar = progressBar;
-        this.onComplete = onComplete;
-        this.duration = 25 * 60;
+    constructor(config) {
+        this.timeText = config.display;
+        this.progressBar = config.progress;
+        this.onComplete = config.onComplete;
+        this.duration = config.duration || 25 * 60; // Default 25 minutes
         this.remaining = this.duration;
         this.isRunning = false;
         this.updateDisplay();
     }
 
-    setDuration(minutes) {
-        if (this.isRunning) return;
-        this.duration = minutes * 60;
-        this.remaining = this.duration;
-        this.updateDisplay();
+    setDuration(seconds) {
+        if (!this.isRunning) {
+            this.duration = seconds;
+            this.remaining = seconds;
+            this.updateDisplay();
+            if (this.progressBar) {
+                this.progressBar.style.width = '0%';
+            }
+        }
     }
 
     start() {
@@ -63,6 +64,13 @@ class Timer {
         this.pause();
         if (this.onComplete) {
             this.onComplete();
+        }
+    }
+
+    setMode(isWorkMode) {
+        if (!this.isRunning) {
+            const minutes = isWorkMode ? 25 : 5;
+            this.setDuration(minutes);
         }
     }
 } 
