@@ -213,29 +213,55 @@ class App {
     }
 
     initializeThemeToggle() {
-        this.themeToggle = document.querySelector('.theme-toggle');
-        this.themeIcon = document.querySelector('.theme-icon');
-        this.themeText = document.querySelector('.theme-text');
+        // Get theme toggle elements
+        const themeToggle = document.querySelector('.theme-toggle');
+        if (!themeToggle) return; // Guard against missing element
+
+        const themeIcon = themeToggle.querySelector('.theme-icon');
+        const themeText = themeToggle.querySelector('.theme-text');
         
-        // Load saved theme
-        const savedTheme = localStorage.getItem('theme') || 'light';
-        document.documentElement.setAttribute('data-theme', savedTheme);
-        this.updateThemeToggle(savedTheme);
+        // Store references
+        this.themeToggle = themeToggle;
+        this.themeIcon = themeIcon;
+        this.themeText = themeText;
+
+        // Load saved theme or default to system preference
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const savedTheme = localStorage.getItem('theme') || (prefersDark ? 'dark' : 'light');
+        
+        // Apply initial theme
+        this.applyTheme(savedTheme);
 
         // Add click handler
-        this.themeToggle.addEventListener('click', () => {
-            const currentTheme = document.documentElement.getAttribute('data-theme');
+        themeToggle.addEventListener('click', (e) => {
+            e.preventDefault(); // Prevent any default button behavior
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
             const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-            
-            document.documentElement.setAttribute('data-theme', newTheme);
-            localStorage.setItem('theme', newTheme);
-            this.updateThemeToggle(newTheme);
+            console.log('Switching theme to:', newTheme); // Debug log
+            this.applyTheme(newTheme);
         });
     }
 
-    updateThemeToggle(theme) {
-        this.themeIcon.textContent = theme === 'dark' ? '🌙' : '☀️';
-        this.themeText.textContent = theme === 'dark' ? 'Dark' : 'Light';
+    applyTheme(theme) {
+        console.log('Applying theme:', theme); // Debug log
+        
+        // Update DOM
+        document.documentElement.setAttribute('data-theme', theme);
+        document.body.style.backgroundColor = theme === 'dark' ? '#111111' : '#FAFAFA';
+        
+        // Update toggle button
+        if (this.themeIcon && this.themeText) {
+            this.themeIcon.textContent = theme === 'dark' ? '🌙' : '☀️';
+            this.themeText.textContent = theme === 'dark' ? 'Dark' : 'Light';
+        }
+        
+        // Update accessibility label
+        if (this.themeToggle) {
+            this.themeToggle.setAttribute('aria-label', `Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`);
+        }
+        
+        // Save preference
+        localStorage.setItem('theme', theme);
     }
 
     initializeDistractionSelector() {
